@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Host Dashboard - RSVP Manager</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --maroon: #580c33;
+            --bright-magenta: #83144d;
+            --gold: #dfb743;
+            --light-gold: #f3df95;
+            --cream: #fffbf6;
+            --text-dark: #2c051a;
+            --success: #2e7d32;
+            --error: #c62828;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: var(--cream);
+            color: var(--text-dark);
+            background-image: radial-gradient(var(--light-gold) 0.5px, transparent 0.5px);
+            background-size: 20px 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        h1, h2, h3 { font-family: 'Cinzel', serif; color: var(--maroon); }
+        
+        .header { text-align: center; margin-bottom: 40px; }
+        .header h1 { font-size: 2.2rem; letter-spacing: 2px; }
+        .header p { font-size: 0.9rem; color: #666; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* --- Login View --- */
+        #login-view {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            border-top: 5px solid var(--maroon);
+            box-shadow: 0 10px 30px rgba(88, 12, 51, 0.1);
+            max-width: 450px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .form-group { margin-bottom: 20px; text-align: left; }
+        .form-group label { display: block; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; color: var(--text-dark); }
+        input[type="email"], input[type="password"], input[type="text"], select {
+            width: 100%; padding: 12px; border: 1px solid rgba(223, 183, 67, 0.5);
+            border-radius: 4px; font-size: 0.95rem; font-family: inherit; transition: all 0.3s;
+        }
+        input:focus, select:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 8px rgba(223, 183, 67, 0.3); }
+        
+        .btn {
+            background-color: var(--maroon); color: white; width: 100%; padding: 14px;
+            border: none; border-radius: 4px; font-family: 'Cinzel', serif; font-weight: 700;
+            font-size: 1rem; letter-spacing: 1px; cursor: pointer; transition: all 0.3s;
+        }
+        .btn:hover { background-color: var(--bright-magenta); box-shadow: 0 4px 15px rgba(88, 12, 51, 0.3); }
+        
+        #error-msg { color: var(--error); font-size: 0.85rem; margin-top: 15px; font-weight: 600; display: none; }
+
+        /* --- Dashboard View --- */
+        #dashboard-view { display: none; width: 100%; max-width: 1100px; }
+        
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px; margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white; padding: 25px; border-radius: 8px; text-align: center;
+            border-left: 4px solid var(--gold); box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        .stat-card h3 { font-size: 2rem; color: var(--maroon); margin-bottom: 5px; }
+        .stat-card p { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #666; font-weight: 600; }
+
+        .toolbar {
+            display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;
+            background: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        
+        .table-container {
+            background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            overflow-x: auto;
+        }
+
+        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background-color: var(--maroon); color: white; font-family: 'Cinzel', serif; font-size: 0.9rem; letter-spacing: 1px; position: sticky; top: 0; }
+        tr:hover { background-color: rgba(223, 183, 67, 0.05); }
+        
+        .badge { padding: 5px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+        .badge.accept { background-color: rgba(46, 125, 50, 0.1); color: var(--success); border: 1px solid var(--success); }
+        .badge.decline { background-color: rgba(198, 40, 40, 0.1); color: var(--error); border: 1px solid var(--error); }
+        
+        .msg-cell { max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        @media (max-width: 768px) {
+            .toolbar { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>RSVP Manager</h1>
+        <p>Engagement Celebration</p>
+    </div>
+
+    <!-- Login Section -->
+    <div id="login-view">
+        <h2 style="margin-bottom: 20px; font-size: 1.5rem;">Host Access</h2>
+        <div class="form-group">
+            <label>Host Email</label>
+            <input type="email" id="host-email" placeholder="Enter authorized email" required>
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="host-password" placeholder="Enter password" required>
+        </div>
+        <button class="btn" onclick="authenticateHost()">Secure Login</button>
+        <div id="error-msg">Invalid email or password. Access denied.</div>
+    </div>
+
+    <!-- Dashboard Section -->
+    <div id="dashboard-view">
+        
+        <!-- Quick Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3 id="stat-total-responses">0</h3>
+                <p>Total Responses</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-attending-guests" style="color: var(--success);">0</h3>
+                <p>Total Attending (Heads)</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-declined">0</h3>
+                <p>Declined</p>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="toolbar">
+            <input type="text" id="search-input" placeholder="Search by name or email..." style="flex: 2;" oninput="applyFilters()">
+            <select id="status-filter" style="flex: 1;" onchange="applyFilters()">
+                <option value="all">All Statuses</option>
+                <option value="accept">Attending</option>
+                <option value="decline">Declined</option>
+            </select>
+        </div>
+
+        <!-- Data Table -->
+        <div class="table-container">
+            <table id="rsvp-table">
+                <thead>
+                    <tr>
+                        <th>Guest Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Guests</th>
+                        <th>Message</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    <!-- Data populates here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let allRSVPs = [];
+
+        // 1. Authenticate Host
+        async function authenticateHost() {
+            const email = document.getElementById('host-email').value.trim();
+            const password = document.getElementById('host-password').value.trim();
+            const errorMsg = document.getElementById('error-msg');
+            const btn = document.querySelector('#login-view .btn');
+
+            if (!email || !password) {
+                errorMsg.innerText = "Please provide both email and password.";
+                errorMsg.style.display = "block";
+                return;
+            }
+
+            btn.innerText = "Authenticating...";
+            errorMsg.style.display = "none";
+
+            try {
+                // Securely send credentials over HTTPS to Netlify backend
+                const res = await fetch('/.netlify/functions/admin-get-rsvps', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (res.ok) {
+                    allRSVPs = await res.json();
+                    document.getElementById('login-view').style.display = "none";
+                    document.getElementById('dashboard-view').style.display = "block";
+                    applyFilters(); // Renders the table initially
+                } else {
+                    errorMsg.innerText = "Invalid email or password. Access denied.";
+                    errorMsg.style.display = "block";
+                    btn.innerText = "Secure Login";
+                }
+            } catch (err) {
+                errorMsg.innerText = "Connection error. Please try again.";
+                errorMsg.style.display = "block";
+                btn.innerText = "Secure Login";
+            }
+        }
+
+        // 2. Filter & Render Data
+        function applyFilters() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const statusFilter = document.getElementById('status-filter').value;
+
+            const filteredData = allRSVPs.filter(rsvp => {
+                const matchesSearch = rsvp.name.toLowerCase().includes(searchTerm) || rsvp.email.toLowerCase().includes(searchTerm);
+                const matchesStatus = statusFilter === 'all' || rsvp.attendance === statusFilter;
+                return matchesSearch && matchesStatus;
+            });
+
+            updateStats(filteredData);
+            renderTable(filteredData);
+        }
+
+        // 3. Update Summary Stats
+        function updateStats(data) {
+            let totalResponses = data.length;
+            let attendingHeads = 0;
+            let declined = 0;
+
+            data.forEach(rsvp => {
+                if (rsvp.attendance === 'accept') {
+                    attendingHeads += parseInt(rsvp.total_guests.replace('+', '')) || 0;
+                } else {
+                    declined++;
+                }
+            });
+
+            document.getElementById('stat-total-responses').innerText = totalResponses;
+            document.getElementById('stat-attending-guests').innerText = attendingHeads;
+            document.getElementById('stat-declined').innerText = declined;
+        }
+
+        // 4. Populate the HTML Table
+        function renderTable(data) {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = ''; 
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px; color: #666;">No RSVPs found matching your filters.</td></tr>';
+                return;
+            }
+
+            data.forEach(rsvp => {
+                const tr = document.createElement('tr');
+                const badgeClass = rsvp.attendance === 'accept' ? 'badge accept' : 'badge decline';
+                const statusText = rsvp.attendance === 'accept' ? 'Attending' : 'Declined';
+                
+                tr.innerHTML = `
+                    <td style="font-weight: 600;">${rsvp.name}</td>
+                    <td><a href="mailto:${rsvp.email}" style="color: var(--maroon); text-decoration: none;">${rsvp.email}</a></td>
+                    <td>${rsvp.phone}</td>
+                    <td><span class="${badgeClass}">${statusText}</span></td>
+                    <td>${rsvp.attendance === 'accept' ? rsvp.total_guests : '-'}</td>
+                    <td class="msg-cell" title="${rsvp.message || ''}">${rsvp.message || '<i style="color:#aaa;">No message</i>'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    </script>
+</body>
+</html>
