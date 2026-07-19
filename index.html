@@ -62,6 +62,12 @@
         }
         input:focus, select:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 8px rgba(223, 183, 67, 0.3); }
         
+        .checkbox-group {
+            display: flex; align-items: center; gap: 8px; margin-bottom: 20px; text-align: left;
+        }
+        .checkbox-group input { width: auto; cursor: pointer; }
+        .checkbox-group label { margin-bottom: 0; cursor: pointer; }
+
         .btn {
             background-color: var(--maroon); color: white; width: 100%; padding: 14px;
             border: none; border-radius: 4px; font-family: 'Cinzel', serif; font-weight: 700;
@@ -87,7 +93,7 @@
         .stat-card p { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #666; font-weight: 600; }
 
         .toolbar {
-            display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;
+            display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;
             background: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         }
         
@@ -96,7 +102,7 @@
             overflow-x: auto;
         }
 
-        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        table { width: 100%; border-collapse: collapse; min-width: 800px; table-layout: auto; }
         th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
         th { background-color: var(--maroon); color: white; font-family: 'Cinzel', serif; font-size: 0.9rem; letter-spacing: 1px; position: sticky; top: 0; }
         tr:hover { background-color: rgba(223, 183, 67, 0.05); }
@@ -105,10 +111,17 @@
         .badge.accept { background-color: rgba(46, 125, 50, 0.1); color: var(--success); border: 1px solid var(--success); }
         .badge.decline { background-color: rgba(198, 40, 40, 0.1); color: var(--error); border: 1px solid var(--error); }
         
-        .msg-cell { max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .msg-cell { 
+            max-width: 300px; 
+            white-space: normal; 
+            word-break: break-word; 
+            line-height: 1.4;
+            padding: 10px 15px;
+        }
 
         @media (max-width: 768px) {
-            .toolbar { flex-direction: column; }
+            .toolbar { flex-direction: column; align-items: stretch; }
+            #refresh-btn { width: 100%; }
         }
     </style>
 </head>
@@ -130,6 +143,12 @@
             <label>Password</label>
             <input type="password" id="host-password" placeholder="Enter password" required>
         </div>
+        
+        <div class="checkbox-group">
+            <input type="checkbox" id="remember-me">
+            <label for="remember-me">Save password</label>
+        </div>
+
         <button class="btn" onclick="authenticateHost()">Secure Login</button>
         <div id="error-msg">Invalid email or password. Access denied.</div>
     </div>
@@ -137,7 +156,6 @@
     <!-- Dashboard Section -->
     <div id="dashboard-view">
         
-        <!-- Quick Stats -->
         <div class="stats-grid">
             <div class="stat-card">
                 <h3 id="stat-total-responses">0</h3>
@@ -153,7 +171,6 @@
             </div>
         </div>
 
-        <!-- Filters -->
         <div class="toolbar">
             <input type="text" id="search-input" placeholder="Search by name or email..." style="flex: 2;" oninput="applyFilters()">
             <select id="status-filter" style="flex: 1;" onchange="applyFilters()">
@@ -161,9 +178,9 @@
                 <option value="accept">Attending</option>
                 <option value="decline">Declined</option>
             </select>
+            <button id="refresh-btn" class="btn" style="flex: 0 1 auto; padding: 12px 20px; width: auto;" onclick="refreshData()">↻ Refresh</button>
         </div>
 
-        <!-- Data Table -->
         <div class="table-container">
             <table id="rsvp-table">
                 <thead>
@@ -176,113 +193,116 @@
                         <th>Message</th>
                     </tr>
                 </thead>
-                <tbody id="table-body">
-                    <!-- Data populates here -->
-                </tbody>
+                <tbody id="table-body"></tbody>
             </table>
         </div>
     </div>
 
     <script>
         let allRSVPs = [];
+        let currentEmail = '';
+        let currentPassword = '';
 
-        // 1. Authenticate Host
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedEmail = localStorage.getItem('rsvp_email');
+            const savedPassword = localStorage.getItem('rsvp_password');
+            if (savedEmail && savedPassword) {
+                document.getElementById('host-email').value = savedEmail;
+                document.getElementById('host-password').value = savedPassword;
+                document.getElementById('remember-me').checked = true;
+            }
+        });
+
         async function authenticateHost() {
             const email = document.getElementById('host-email').value.trim();
             const password = document.getElementById('host-password').value.trim();
+            const rememberMe = document.getElementById('remember-me').checked;
             const errorMsg = document.getElementById('error-msg');
             const btn = document.querySelector('#login-view .btn');
 
-            if (!email || !password) {
-                errorMsg.innerText = "Please provide both email and password.";
-                errorMsg.style.display = "block";
-                return;
-            }
+            if (!email || !password) return;
 
             btn.innerText = "Authenticating...";
-            errorMsg.style.display = "none";
-
             try {
-                // Securely send credentials over HTTPS to Netlify backend
                 const res = await fetch('/.netlify/functions/admin-get-rsvps', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password })
                 });
 
+                const data = await res.json(); 
+
                 if (res.ok) {
-                    allRSVPs = await res.json();
+                    currentEmail = email;
+                    currentPassword = password;
+                    if (rememberMe) {
+                        localStorage.setItem('rsvp_email', email);
+                        localStorage.setItem('rsvp_password', password);
+                    } else {
+                        localStorage.clear();
+                    }
+
+                    allRSVPs = data;
                     document.getElementById('login-view').style.display = "none";
                     document.getElementById('dashboard-view').style.display = "block";
-                    applyFilters(); // Renders the table initially
+                    applyFilters(); 
                 } else {
-                    errorMsg.innerText = "Invalid email or password. Access denied.";
+                    errorMsg.innerText = data.error ? `Error: ${data.error}` : "Access denied.";
                     errorMsg.style.display = "block";
                     btn.innerText = "Secure Login";
                 }
             } catch (err) {
-                errorMsg.innerText = "Connection error. Please try again.";
+                errorMsg.innerText = "Connection error.";
                 errorMsg.style.display = "block";
                 btn.innerText = "Secure Login";
             }
         }
 
-        // 2. Filter & Render Data
+        async function refreshData() {
+            const btn = document.getElementById('refresh-btn');
+            btn.innerText = "↻ Fetching...";
+            try {
+                const res = await fetch('/.netlify/functions/admin-get-rsvps', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: currentEmail, password: currentPassword })
+                });
+                const data = await res.json();
+                if (res.ok) { allRSVPs = data; applyFilters(); }
+                else { alert("Session expired."); location.reload(); }
+            } catch (err) { alert("Refresh failed."); }
+            btn.innerText = "↻ Refresh";
+        }
+
         function applyFilters() {
             const searchTerm = document.getElementById('search-input').value.toLowerCase();
             const statusFilter = document.getElementById('status-filter').value;
-
-            const filteredData = allRSVPs.filter(rsvp => {
-                const matchesSearch = rsvp.name.toLowerCase().includes(searchTerm) || rsvp.email.toLowerCase().includes(searchTerm);
-                const matchesStatus = statusFilter === 'all' || rsvp.attendance === statusFilter;
-                return matchesSearch && matchesStatus;
-            });
-
+            const filteredData = allRSVPs.filter(rsvp => 
+                (rsvp.name.toLowerCase().includes(searchTerm) || rsvp.email.toLowerCase().includes(searchTerm)) && 
+                (statusFilter === 'all' || rsvp.attendance === statusFilter)
+            );
             updateStats(filteredData);
             renderTable(filteredData);
         }
 
-        // 3. Update Summary Stats
         function updateStats(data) {
-            let totalResponses = data.length;
-            let attendingHeads = 0;
-            let declined = 0;
-
-            data.forEach(rsvp => {
-                if (rsvp.attendance === 'accept') {
-                    attendingHeads += parseInt(rsvp.total_guests.replace('+', '')) || 0;
-                } else {
-                    declined++;
-                }
-            });
-
-            document.getElementById('stat-total-responses').innerText = totalResponses;
-            document.getElementById('stat-attending-guests').innerText = attendingHeads;
-            document.getElementById('stat-declined').innerText = declined;
+            document.getElementById('stat-total-responses').innerText = data.length;
+            document.getElementById('stat-attending-guests').innerText = data.filter(r => r.attendance === 'accept').reduce((sum, r) => sum + (parseInt(r.total_guests.replace('+', '')) || 0), 0);
+            document.getElementById('stat-declined').innerText = data.filter(r => r.attendance === 'decline').length;
         }
 
-        // 4. Populate the HTML Table
         function renderTable(data) {
             const tbody = document.getElementById('table-body');
-            tbody.innerHTML = ''; 
-
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px; color: #666;">No RSVPs found matching your filters.</td></tr>';
-                return;
-            }
-
+            tbody.innerHTML = data.length ? '' : '<tr><td colspan="6" style="text-align:center; padding:30px;">No results found.</td></tr>';
             data.forEach(rsvp => {
                 const tr = document.createElement('tr');
-                const badgeClass = rsvp.attendance === 'accept' ? 'badge accept' : 'badge decline';
-                const statusText = rsvp.attendance === 'accept' ? 'Attending' : 'Declined';
-                
                 tr.innerHTML = `
-                    <td style="font-weight: 600;">${rsvp.name}</td>
-                    <td><a href="mailto:${rsvp.email}" style="color: var(--maroon); text-decoration: none;">${rsvp.email}</a></td>
+                    <td style="font-weight:600;">${rsvp.name}</td>
+                    <td><a href="mailto:${rsvp.email}" style="color:var(--maroon);">${rsvp.email}</a></td>
                     <td>${rsvp.phone}</td>
-                    <td><span class="${badgeClass}">${statusText}</span></td>
+                    <td><span class="badge ${rsvp.attendance}">${rsvp.attendance === 'accept' ? 'Attending' : 'Declined'}</span></td>
                     <td>${rsvp.attendance === 'accept' ? rsvp.total_guests : '-'}</td>
-                    <td class="msg-cell" title="${rsvp.message || ''}">${rsvp.message || '<i style="color:#aaa;">No message</i>'}</td>
+                    <td class="msg-cell">${rsvp.message || '<i style="color:#aaa;">No message</i>'}</td>
                 `;
                 tbody.appendChild(tr);
             });
