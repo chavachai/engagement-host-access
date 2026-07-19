@@ -1,4 +1,3 @@
-// netlify/functions/admin-get-rsvps.js
 const { Pool } = require('pg');
 
 // 1. Define your secure host credentials
@@ -38,8 +37,8 @@ exports.handler = async (event) => {
         const client = await pool.connect();
         
         try {
-            // Note: Verify 'rsvps' matches your exact PostgreSQL table name
-            const result = await client.query('SELECT * FROM rsvps ORDER BY id DESC');
+            // FIX: Removed 'ORDER BY id DESC' since the 'id' column does not exist
+            const result = await client.query('SELECT * FROM rsvps');
             
             // 5. Return data to dashboard
             return {
@@ -55,7 +54,7 @@ exports.handler = async (event) => {
         console.error("Database Error:", error);
         return { 
             statusCode: 500, 
-            body: JSON.stringify({ error: "Failed to fetch data from the database." }) 
+            body: JSON.stringify({ error: error.message }) 
         };
     }
 };
